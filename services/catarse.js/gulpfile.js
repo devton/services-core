@@ -6,8 +6,9 @@ const Server = require('karma').Server;
 
 gulp.task('karma', (done) => {
     new Server({
-        configFile: `${__dirname}/karma.conf.js`
-    }, done).start();
+        configFile: `${__dirname}/karma.conf.js`,
+        singleRun: true
+    }, function() { done(); }).start();
 });
 
 gulp.task('lint', () => {

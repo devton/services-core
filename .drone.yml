@@ -1,0 +1,157 @@
+kind: pipeline
+name: default
+
+steps:
+- name: 'test git push'
+  image: alpine
+  environment:
+    SSH_PRIVATE_KEY:
+      from_secret: ssh_private_key
+  commands:
+    - apk update && apk add git openssl openssh
+    - mkdir "$${HOME}/.ssh"
+    - chmod 700 "$${HOME}/.ssh"
+    - echo -n "$${SSH_PRIVATE_KEY}" > "$${HOME}/.ssh/id_rsa"
+    - chmod 400 "$${HOME}/.ssh/id_rsa"
+    #- eval "$$(ssh-agent -s)"
+    #- ssh-add "$${HOME}/.ssh/id_rsa"
+    - ssh-keyscan -t rsa github.com >>  "$${HOME}/.ssh/known_hosts"
+    - git remote add devton git@github.com:devton/services-core.git
+    - git push devton droneci-test:droneci-test2
+
+- name: 'test_common_models'
+  image: comum/docker-build-env:latest
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - docker run -e POSTGRES_DB=services_core_test --name pg_default_models -p 5432:5432 -d postgres:9.6
+    - cd services/service-core-db/
+    - docker build -f Dockerfile -t comum/services-core:test . \
+    - cd ../common_models/
+    - docker build -f Dockerfile -t comum/common_models:test . \
+    - cd ../../
+    - docker run -i --rm --link pg_default_models:pg_default comum/services-core:test psql -U postgres -h pg_default -p 5432 services_core_test < services/service-core-db/init.sql
+    - docker run -i --rm --link pg_default_models:pg_default comum/services-core:test psql -U postgres -h pg_default -p 5432 -c "alter user postgrest with superuser;"
+    - docker run -i --rm --link pg_default_models:pg_default -e="DATABASE_URL=postgres://postgres@pg_default:5432/services_core_test" comum/services-core:test ./scripts/run_migrations.sh
+    - docker run -i --rm --link pg_default_models:localhost.pg -e="RAILS_ENV=test" -e="DATABASE_URL=postgres://postgres@localhost.pg:5432/services_core_test" comum/common_models:test bundle exec rspec spec
+
+- name: 'test_catarse_js'
+  image: node:10
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - apt-get update && apt-get install -y curl build-essential git
+    # chrome deps
+    - apt-get install -y wget unzip fontconfig locales gconf-service libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils wget
+    - cd services/catarse.js
+    - npm install
+    - npm test
+
+- name: 'test_service_core_db'
+  image: comum/docker-build-env:latest
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - cd services/service-core-db
+    - sh run_sql_tests_with_docker.sh
+
+- name: 'test_payment_service_lib'
+  image: comum/docker-build-env:latest
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - docker run -e POSTGRES_DB=services_core_test --name pg_default -d postgres:9.6
+    - cd services/service-core-db/
+    - docker build -f Dockerfile -t comum/services-core:test .
+    - cd ../payment-service-api/
+    - docker build -f Dockerfile -t comum/payment-service:test .
+    - cd ../../
+    - docker run -i --rm --link pg_default:pg_default comum/services-core:test psql -U postgres -h pg_default -p 5432 services_core_test < services/service-core-db/init.sql
+    - docker run -i --rm --link pg_default:pg_default comum/services-core:test psql -U postgres -h pg_default -p 5432 -c "alter user postgrest with superuser;"
+    - docker run -i --rm --link pg_default:pg_default -e="DATABASE_URL=postgres://postgres@pg_default:5432/services_core_test" comum/services-core:test ./scripts/run_migrations.sh
+    - docker run -i --rm --link pg_default:localhost.pg -e="RAILS_ENV=test" -e="DATABASE_URL=postgres://postgres@localhost.pg:5432/services_core_test" comum/payment-service:test npm test -- -v
+
+
+- name: 'test_proxy_config'
+  image: comum/docker-build-env:latest
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - cd services/proxy
+    - ./test.sh
+
+- name: 'test_common_api'
+  image: circleci/ruby:2.5.1-node-browsers-legacy
+  volumes:
+  - name: dockersock
+    path: /var/run
+  commands:
+    - sleep 5
+    - sudo apt update && sudo apt install postgresql-client
+    - sudo chmod -R 777 services/
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y 
+    - . $HOME/.cargo/env
+    - cargo install diesel_cli --no-default-features --features "postgres"
+    - sudo ln -s $HOME/.cargo/bin/diesel /usr/local/bin/diesel
+    - cd services/service-core-db/
+    - touch Cargo.toml
+    - psql -U postgres -h database -p 5432 services_core_test < ./init.sql
+    - psql -U postgres -h database -p 5432 -c "alter user postgrest with superuser;" 
+    - DATABASE_URL=postgres://postgres@database:5432/services_core_test ./scripts/run_migrations.sh
+    - cd ../../
+    - cd services/common-api
+    - bundle config disable_local_branch_check true
+    - bundle config local.common_models ../common_models
+    - bundle install
+    - RAILS_ENV=test DATABASE_CLEANER_ALLOW_REMOTE_DATABASE_URL=true DATABASE_URL=postgres://postgres:example@database:5432/services_core_test bundle exec rspec spec
+
+
+- name: 'test_catarse'
+  image: circleci/ruby:2.4.4-jessie-node-browsers
+  commands:
+    - sudo apt update && sudo apt install postgresql-client
+    - sudo chmod -R 777 services/catarse
+    - cd services/catarse
+    - bundle install
+    - npm install
+    - RAILS_ENV=test DATABASE_URL=postgres://postgres:example@databasecatarse:5432/catarse_test bundle exec rake db:migrate
+    - RAILS_ENV=test DATABASE_URL=postgres://postgres:example@databasecatarse:5432/catarse_test bundle exec rspec spec
+
+services:
+- name: docker
+  image: docker:dind
+  detach: true
+  privileged: true
+  volumes:
+  - name: dockersock
+    path: /var/run
+
+- name: databasecatarse
+  image: postgres:9.4-alpine
+  detach: true
+  environment:
+    POSTGRES_DB: catarse_test
+  ports:
+    - 5432
+
+- name: database
+  image: postgres:9.6-alpine
+  detach: true
+  environment:
+    POSTGRES_DB: services_core_test
+  ports:
+    - 5432
+
+volumes:
+- name: dockersock
+  temp: {}
