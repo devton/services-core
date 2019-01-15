@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+mkdir "${HOME}/.ssh"
+chmod 700 "${HOME}/.ssh"
+echo -n "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa"
+chmod 400 "${HOME}/.ssh/id_rsa"
+ssh-keyscan -t rsa ${SSH_KEYSCAN_DOMAIN} >>  "${HOME}/.ssh/known_hosts"

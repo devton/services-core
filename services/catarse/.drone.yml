@@ -1,0 +1,48 @@
+kind: pipeline
+name: default
+
+steps:
+- name: 'sandbox_deploy'
+  image: alpine
+  environment:
+    SSH_PRIVATE_KEY:
+      from_secret: ssh_private_key
+    DEPLOY_REMOTE_SERVER:
+      from_secret: deploy_remote_server
+    SSH_KEYSCAN_DOMAIN:
+      from_secret: ssh_keyscan_domain
+  commands:
+    - apk update && apk add git openssl openssh
+    - ./.drone/setup_privs
+    - ./.drone/sandbox_deploy
+
+#- name: 'test_catarse'
+#  image: circleci/ruby:2.4.4-jessie-node-browsers
+#  commands:
+#    - sudo apt update && sudo apt install postgresql-client
+#    - bundle install
+#    - npm install
+#    - RAILS_ENV=test DATABASE_URL=postgres://postgres:example@databasecatarse:5432/catarse_test bundle exec rake db:migrate
+#    - RAILS_ENV=test DATABASE_URL=postgres://postgres:example@databasecatarse:5432/catarse_test bundle exec rspec spec
+#
+#
+#services:
+#- name: docker
+#  image: docker:dind
+#  detach: true
+#  privileged: true
+#  volumes:
+#  - name: dockersock
+#    path: /var/run
+#
+#- name: databasecatarse
+#  image: postgres:9.4-alpine
+#  detach: true
+#  environment:
+#    POSTGRES_DB: catarse_test
+#  ports:
+#    - 5432
+
+#volumes:
+#- name: dockersock
+#  temp: {}

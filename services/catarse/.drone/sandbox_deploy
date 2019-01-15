@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+git remote add sandbox $DEPLOY_REMOTE_SERVER
+ssh-keyscan -t rsa ${DEPLOY_REMOTE_DOMAIN} >> "${HOME}/.ssh/known_hosts"
+
+echo 'pushing to sandbox'
+git push sandbox $DEPLOY_BRANCH

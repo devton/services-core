@@ -1,0 +1,23 @@
+#!/bin/sh
+set -ex
+
+git remote add catarse.js $CATARSE_JS_GITHUB_REMOTE
+git remote add catarse $CATARSE_GITHUB_REMOTE
+git remote add common-api $COMMON_API_GITHUB_REMOTE
+git remote add service-core-db $SERVICE_CORE_DB_GITHUB_REMOTE
+git remote add proxy $PROXY_GITHUB_REMOTE
+
+echo 'pushing to catarse.js...'
+#git subtree push -q --prefix=services/catarse.js catarse.js $SUBTREES_REMOTE_BRANCH
+
+echo 'pushing to catarse...'
+git subtree push --prefix=services/catarse catarse $SUBTREES_REMOTE_BRANCH
+
+echo 'pushing to common-api...'
+#git subtree push -q --prefix=services/common-api common-api $SUBTREES_REMOTE_BRANCH
+
+echo 'pushing to service-core-db...'
+#git subtree push -q --prefix=services/service-core-db service-core-db $SUBTREES_REMOTE_BRANCH
+
+echo 'pushing to proxy...'
+#git subtree push -q --prefix=services/proxy proxy $SUBTREES_REMOTE_BRANCH
