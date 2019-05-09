@@ -40,6 +40,7 @@ class Project < ActiveRecord::Base
   has_one :project_metric_storage
   has_many :balance_transactions
   has_many :taggings
+  has_many :project_integrations
   has_many :goals, foreign_key: :project_id
   has_many :tags, through: :taggings
   has_many :public_tags, through: :taggings
