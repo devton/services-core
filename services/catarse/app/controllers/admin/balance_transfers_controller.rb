@@ -54,8 +54,7 @@ class Admin::BalanceTransfersController < Admin::BaseController
   end
 
   def process_transfers
-    _collection = BalanceTransfer.authorized
-    _collection.find_each do |bt|
+    BalanceTransfer.without_transfer_id.authorized.each do |bt|
       Raven.user_context(balance_transfer_id: bt.id)
       begin
         Rails.logger.info "[BalanceTransfer] processing -> #{bt.id} "

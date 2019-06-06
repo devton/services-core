@@ -25,6 +25,10 @@ class BalanceTransfer < ActiveRecord::Base
     where("balance_transfers.current_state = 'authorized'")
   }
 
+  scope :without_transfer_id, -> () {
+    where("balance_transfers.transfer_id is null")
+  }
+
   delegate :can_transition_to?, :transition_to, :transition_to!, to: :state_machine
 
   def state_machine

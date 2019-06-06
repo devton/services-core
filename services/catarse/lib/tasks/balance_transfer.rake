@@ -3,9 +3,8 @@
 namespace :balance_transfer do
   desc 'process transfers that is authorized'
   task process_authorized: :environment do
-    BalanceTransfer.authorized.find_each do |bt|
-      Raven.user_context(balance_transfer_id: bt.id)
-
+    Raven.user_context(balance_transfer_id: bt.id)
+    BalanceTransfer.authorized.each do |bt|
       begin
         Rails.logger.info "[BalanceTransfer] processing -> #{bt.id} "
 
@@ -23,13 +22,13 @@ namespace :balance_transfer do
         )
       end
 
-      Raven.user_context({})
     end
+    Raven.user_context({})
   end
 
   desc 'update balance_transfers status'
   task update_status: :environment do
-    BalanceTransfer.processing.find_each do |bt|
+    BalanceTransfer.processing.each do |bt|
       transfer = PagarMe::Transfer.find bt.transfer_id
 
       case transfer.status
